@@ -12,10 +12,20 @@ export interface WrappedPeriod {
   isRolling: boolean;
 }
 
-export function getWrappedPeriod(requestedYear?: number): WrappedPeriod {
+export function getWrappedPeriod(requestedYear?: number, days?: number): WrappedPeriod {
   const now = new Date();
   const currentYear = now.getFullYear();
   
+  // Relative days requested
+  if (days && days > 0) {
+    return {
+      startDate: subDays(now, days),
+      endDate: now,
+      label: `Last ${days} Days`,
+      isRolling: true
+    };
+  }
+
   // Explicit year requested
   if (requestedYear) {
     if (requestedYear < currentYear) {

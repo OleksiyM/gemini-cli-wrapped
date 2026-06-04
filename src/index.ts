@@ -28,12 +28,14 @@ function printHelp() {
 
   OPTIONS:
     --year <YYYY>    Generate wrapped for a specific year (default: current year)
+    --days <N>       Generate wrapped for the last N days
     --help, -h       Show this help message
     --version, -v    Show version number
 
   EXAMPLES:
     gemini-wrapped              # Generate current year wrapped
     gemini-wrapped --year 2025  # Generate 2025 wrapped
+    gemini-wrapped --days 50    # Generate last 50 days wrapped
   `);
 }
 
@@ -42,6 +44,7 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       year: { type: "string", short: "y" },
+      days: { type: "string", short: "d" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" },
     },
@@ -62,7 +65,8 @@ async function main() {
   p.intro("gemini wrapped");
 
   const requestedYear = values.year ? parseInt(values.year, 10) : undefined;
-  const period = getWrappedPeriod(requestedYear);
+  const requestedDays = values.days ? parseInt(values.days, 10) : undefined;
+  const period = getWrappedPeriod(requestedYear, requestedDays);
 
   const availability = isWrappedAvailable(requestedYear || new Date().getFullYear());
   if (!availability.available) {
