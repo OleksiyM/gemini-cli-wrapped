@@ -81,24 +81,63 @@ export async function collectGeminiSessions(startDate: Date, endDate: Date): Pro
     return [];
   }
 
-  const pattern = join(GEMINI_TMP_DIR, "*", "chats", "session-*.json");
-  const sessionFiles = await glob(pattern, { windowsPathsNoEscape: true });
+  // Support both old .json and new .jsonl formats
+  const patterns = [
+    join(GEMINI_TMP_DIR, "*", "chats", "session-*.json"),
+    join(GEMINI_TMP_DIR, "*", "chats", "session-*.jsonl")
+  ];
   
   const rawSessions: RawSessionData[] = [];
 
-  for (const file of sessionFiles) {
-    try {
-      const content = await readFile(file, "utf-8");
-      const data = JSON.parse(content) as RawSessionData;
-      
-      const startTime = new Date(data.startTime);
-      if (startTime < startDate || startTime > endDate) {
+  for (const pattern of patterns) {
+    const sessionFiles = await glob(pattern, { windowsPathsNoEscape: true });
+    
+    for (const file of sessionFiles) {
+      try {
+        const content = await readFile(file, "utf-8");
+        let data: RawSessionData;
+
+        if (file.endsWith(".jsonl")) {
+          const lines = content.trim().split("\n");
+          if (lines.length === 0) continue;
+          
+          const sessionMeta = JSON.parse(lines[0]);
+          const messages: any[] = [];
+          let lastUpdated = sessionMeta.lastUpdated;
+
+          for (let i = 1; i < lines.length; i++) {
+            try {
+              const line = JSON.parse(lines[i]);
+              if (line.id && line.type) {
+                messages.push(line);
+              } else if (line.$set && line.$set.lastUpdated) {
+                lastUpdated = line.$set.lastUpdated;
+              }
+            } catch {
+              continue;
+            }
+          }
+
+          data = {
+            sessionId: sessionMeta.sessionId,
+            projectHash: sessionMeta.projectHash,
+            startTime: sessionMeta.startTime,
+            lastUpdated: lastUpdated || sessionMeta.lastUpdated,
+            messages
+          };
+        } else {
+          data = JSON.parse(content) as RawSessionData;
+        }
+        
+        const startTime = new Date(data.startTime);
+        if (startTime < startDate || startTime > endDate) {
+          continue;
+        }
+
+        rawSessions.push(data);
+      } catch (e) {
         continue;
       }
-
-      rawSessions.push(data);
-    } catch (e) {
-      continue;
     }
   }
 
@@ -110,22 +149,37 @@ export async function getAbsoluteFirstSessionDate(): Promise<Date | null> {
     return null;
   }
 
-  const pattern = join(GEMINI_TMP_DIR, "*", "chats", "session-*.json");
-  const sessionFiles = await glob(pattern, { windowsPathsNoEscape: true });
+  const patterns = [
+    join(GEMINI_TMP_DIR, "*", "chats", "session-*.json"),
+    join(GEMINI_TMP_DIR, "*", "chats", "session-*.jsonl")
+  ];
   
   let earliestDate: Date | null = null;
 
-  for (const file of sessionFiles) {
-    try {
-      const content = await readFile(file, "utf-8");
-      const data = JSON.parse(content) as RawSessionData;
-      const startTime = new Date(data.startTime);
-      
-      if (!earliestDate || startTime < earliestDate) {
-        earliestDate = startTime;
+  for (const pattern of patterns) {
+    const sessionFiles = await glob(pattern, { windowsPathsNoEscape: true });
+    
+    for (const file of sessionFiles) {
+      try {
+        const content = await readFile(file, "utf-8");
+        let startTimeStr: string;
+
+        if (file.endsWith(".jsonl")) {
+          const firstLine = content.split("\n")[0];
+          const sessionMeta = JSON.parse(firstLine);
+          startTimeStr = sessionMeta.startTime;
+        } else {
+          const data = JSON.parse(content) as RawSessionData;
+          startTimeStr = data.startTime;
+        }
+        
+        const startTime = new Date(startTimeStr);
+        if (!earliestDate || startTime < earliestDate) {
+          earliestDate = startTime;
+        }
+      } catch (e) {
+        continue;
       }
-    } catch (e) {
-      continue;
     }
   }
 
