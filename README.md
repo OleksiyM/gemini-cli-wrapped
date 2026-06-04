@@ -4,8 +4,7 @@
 
 **Your year in Gemini CLI, beautifully visualized.**
 
-> [!IMPORTANT]
-> **This fork fixes support for the latest Gemini CLI (JSONL format)** and adds custom period support with the `--days` option.
+**🚀 Enhanced Fork:** This version fixes support for the latest Gemini CLI (**JSONL format**) and adds custom period support with the `--days` option.
 
 Generate a personalized "Wrapped"-style summary of your [Gemini CLI](https://geminicli.com) usage.
 
